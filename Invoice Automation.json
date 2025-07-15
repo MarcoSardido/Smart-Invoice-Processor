@@ -1,0 +1,746 @@
+{
+  "name": "Invoice Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "custom",
+              "cronExpression": "*/5 * * * *"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {},
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1080,
+        -500
+      ],
+      "id": "f3ca9f11-3ba2-46d9-8922-8a6ae19b4577",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GsVt0eaYPo9zpbxa",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -860,
+        -500
+      ],
+      "id": "0cb1cf53-d116-4599-9622-95fc6be55346",
+      "name": "Get a message",
+      "webhookId": "947919bc-400b-45ae-9db5-cda2dc17e9db",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GsVt0eaYPo9zpbxa",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "099244be-838e-4c70-93be-3674d660343f",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "PDF",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PDF Invoice"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7ceaa62b-1230-48b3-ac51-7efc50a20c96",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "HTML",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -220,
+        -240
+      ],
+      "id": "b9430c50-71db-45d3-84fd-8ca1008f70f4",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -220
+      ],
+      "id": "bcc0afeb-0239-46be-93cf-badab147b913",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const attachments = item.binary;\n  const output = [];\n\n  for (const key in attachments) {\n    const file = attachments[key];\n    const mimeType = file.mimeType || '';\n    const fileName = file.fileName || '';\n\n    // Check if it's PDF or HTML\n    const isPdf = mimeType.includes('pdf') || fileName.endsWith('.pdf');\n    const isHtml = mimeType.includes('html') || fileName.endsWith('.html');\n\n    output.push({\n      json: {\n        fileName,\n        mimeType,\n        type: isPdf ? 'PDF' : isHtml ? 'HTML' : 'Unknown',\n      },\n      binary: {\n        data: file,\n      }\n    });\n  }\n\n  return output;\n}).flat();\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        -240
+      ],
+      "id": "f04c89a5-d598-4dbf-a1de-b3271dcff16b",
+      "name": "Extract File Extentions"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        340,
+        -220
+      ],
+      "id": "4fa408cb-8ce5-4084-9f26-9bcf144b50cf",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-001",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        340,
+        -40
+      ],
+      "id": "d369fb4e-c71a-42ba-967f-690f4381db7d",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UEAdptmbLHKKjmSm",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"invoice_number\": \"INV-2025-001\",\n  \"invoice_date\": \"2025-07-13\",\n  \"due_date\": \"2025-07-20\",\n  \"currency\": \"USD\",\n  \"status\": \"unpaid\",\n  \"seller\": {\n    \"name\": \"Opsynth Solutions Inc.\",\n    \"address\": \"123 Tech Valley, San Francisco, CA 94105\",\n    \"email\": \"billing@opsynth.ai\",\n    \"phone\": \"+1 (555) 123-4567\",\n    \"tax_id\": \"98-7654321\"\n  },\n  \"buyer\": {\n    \"name\": \"Acme Corp\",\n    \"address\": \"456 Market Lane, New York, NY 10001\",\n    \"email\": \"accounts@acmecorp.com\",\n    \"phone\": \"+1 (555) 987-6543\",\n    \"tax_id\": \"12-3456789\"\n  },\n  \"items\": [\n    {\n      \"description\": \"AI Agent Setup & Integration\",\n      \"quantity\": 1,\n      \"unit_price\": 1000.00,\n      \"total\": 1000.00\n    },\n    {\n      \"description\": \"Monthly AI Agent Subscription - July 2025\",\n      \"quantity\": 1,\n      \"unit_price\": 200.00,\n      \"total\": 200.00\n    }\n  ],\n  \"subtotal\": 1200.00,\n  \"tax_rate\": 0.10,\n  \"tax_amount\": 120.00,\n  \"total_amount\": 1320.00,\n  \"notes\": \"Payment due within 7 days. Thank you for your business!\",\n  \"terms\": \"Late payments may incur a 2% monthly fee.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        500,
+        0
+      ],
+      "id": "9b99fafb-4da4-4aac-8a02-33ade0b2093a",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "content": "**This switch determines the type of attachment**\n",
+        "height": 240,
+        "width": 300
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -300,
+        -300
+      ],
+      "id": "4c46051d-c8f7-45a7-9484-b4ce4b1428f0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "inputText": "=Subject: {{ $json.subject }}\nEmail Body: {{ $json.text }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "Invoice",
+              "description": "An email invoice is a digital bill sent to someone by email. It lists what they bought, how much it costs, and how to pay. Businesses use it to request payment from customers after a sale."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        -1040,
+        -240
+      ],
+      "id": "3eeedde8-8333-408e-ba17-b15075cf8b21",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-001",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        -60
+      ],
+      "id": "0e16fd3f-c8c4-4611-b4f0-830b07f7d0ba",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UEAdptmbLHKKjmSm",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Get a message').item.json.id }}",
+        "emailType": "text",
+        "message": "Invoice received. Thank you!",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        760,
+        0
+      ],
+      "id": "85546163-6b36-4859-a14e-bbfe16c84310",
+      "name": "Reply to seller",
+      "webhookId": "6cdc8370-4b3b-4615-b344-84b51144da27",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GsVt0eaYPo9zpbxa",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "app79kiw5Ic8xVP4h",
+          "mode": "list",
+          "cachedResultName": "Invoice DB",
+          "cachedResultUrl": "https://airtable.com/app79kiw5Ic8xVP4h"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblofn1P1Ua9sXMA8",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": "https://airtable.com/app79kiw5Ic8xVP4h/tblofn1P1Ua9sXMA8"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Total Amount": "={{ $json.output.total_amount }}",
+            "Invoice Number": "={{ $json.output.invoice_number }}",
+            "Client Name": "={{ $json.output.buyer.name }}",
+            "Client Email": "={{ $json.output.buyer.email }}",
+            "Client Address": "={{ $json.output.buyer.address }}",
+            "Client Phone": "={{ $json.output.buyer.phone }}",
+            "Invoice Date": "={{ $json.output.invoice_date }}",
+            "Due Date": "={{ $json.output.due_date }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Invoice Number",
+              "displayName": "Invoice Number",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Client Name",
+              "displayName": "Client Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Client Email",
+              "displayName": "Client Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Client Address",
+              "displayName": "Client Address",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Client Phone",
+              "displayName": "Client Phone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Total Amount",
+              "displayName": "Total Amount",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Invoice Date",
+              "displayName": "Invoice Date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Due Date",
+              "displayName": "Due Date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        760,
+        -220
+      ],
+      "id": "02d78ee7-4912-4eeb-9697-e2790c94f2d7",
+      "name": "Create an invoice record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "LMBdDTaEfOQsve9L",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Extract File Extentions').item.json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1stgAcR2knZnr8PIIH2iNsDUogApRh9TC",
+          "mode": "list",
+          "cachedResultName": "invoices",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1stgAcR2knZnr8PIIH2iNsDUogApRh9TC"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -220,
+        -500
+      ],
+      "id": "f6f9018a-c276-4e98-a551-8b354f813bfe",
+      "name": "Upload invoice file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "KYObpttNBouo2DRH",
+          "name": "marcosardido"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Get a message').item.json.id }}",
+        "labelIds": [
+          "Label_6225849195062395154"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -540,
+        -500
+      ],
+      "id": "4e30e6c0-e7ed-4f68-aac1-94a3bbaf34eb",
+      "name": "Add label",
+      "webhookId": "3a07c92f-d0a8-430f-8de7-35dba1ce0b69",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GsVt0eaYPo9zpbxa",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Extract PDF data; Format into JSON data\n",
+        "height": 480,
+        "width": 560,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        100,
+        -300
+      ],
+      "id": "75750975-93f9-49dc-b757-a617cb72498f",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://v2.convertapi.com/convert/html/to/pdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer aZqQXRBW9YfWRl9T2PgENCLnKZabXGJE"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "StoreFile",
+              "value": "true"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "File",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -460,
+        80
+      ],
+      "id": "09f2fb10-0191-49d2-9428-dc42fb3b2518",
+      "name": "Convert HTML to PDF"
+    },
+    {
+      "parameters": {
+        "url": "=https://v2.convertapi.com/d/{{ $json.Files[0].FileId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -200,
+        80
+      ],
+      "id": "435fc7c8-293b-44ce-9768-4f95fd170b9b",
+      "name": "Download Converted File"
+    },
+    {
+      "parameters": {
+        "content": "## Convert HTML to PDF\n",
+        "height": 280,
+        "width": 600,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        0
+      ],
+      "id": "e6190268-3a6d-455c-88c2-800973970c73",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a message": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Convert HTML to PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract File Extentions": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload invoice file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Create an invoice record",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reply to seller",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "Add label",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract File Extentions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an invoice record": {
+      "main": [
+        []
+      ]
+    },
+    "Add label": {
+      "main": [
+        []
+      ]
+    },
+    "Convert HTML to PDF": {
+      "main": [
+        [
+          {
+            "node": "Download Converted File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Converted File": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1a9789a9-d542-4aea-a354-24cf04ad526f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "53122e804c8ff562f6b21d865928dff46770e0b600e76f1b89e81361ab0ba143"
+  },
+  "id": "770TxcgTp74za6D8",
+  "tags": []
+}
