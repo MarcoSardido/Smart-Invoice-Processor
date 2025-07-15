@@ -504,7 +504,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer aZqQXRBW9YfWRl9T2PgENCLnKZabXGJE"
+              "value": "Bearer <token>"
             }
           ]
         },
